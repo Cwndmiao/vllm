@@ -56,8 +56,19 @@ class CPUModelRunner(GPUModelRunner):
         assert type(self.attn_groups[0]
                     [0].metadata_builder) is TorchSDPAMetadataBuilderV1
 
-        self.attn_groups[0][0].metadata_builder.reorder_batch(
-            self.input_batch, scheduler_output)
+        mb = getattr(self.attn_groups[0][0], "metadata_builders", None)
+        if isinstance(mb, list):
+            if not isinstance(mb[0], TorchSDPAMetadataBuilderV1):
+                return
+            mb[0].reorder_batch(self.input_batch, scheduler_output)
+            return
+        elif not isinstance(mb, TorchSDPAMetadataBuilderV1):
+            # Encoder-only / rerank models do not benefit from reordering,
+            # so we safely skip here.
+            return
+
+        # Safe path for decoder/attention-heavy models
+        mb.reorder_batch(self.input_batch, scheduler_output)
 
     def _postprocess_tensors(self) -> None:
         # Note: replace device tensors with cpu tensors

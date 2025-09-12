@@ -88,6 +88,16 @@ def parse_args():
         help=("Fraction of GPU memory vLLM is allowed to allocate (0.0, 1.0]."),
     )
     parser.add_argument(
+        "--enable-microbatching",
+        action="store_true",
+        help=("Enable microbatched execution"),
+    )
+    parser.add_argument(
+        "--compilation-config",
+        type=int,
+        help=("Compilation optimization (O) level 0-3."),
+    )
+    parser.add_argument(
         "--quantization",
         type=str,
     )
@@ -107,6 +117,7 @@ def main(
     max_num_seqs,
     max_model_len,
     gpu_memory_utilization,
+    enable_microbatching,
     quantization,
 ):
     os.environ["VLLM_DP_RANK"] = str(global_dp_rank)
@@ -161,6 +172,7 @@ def main(
         max_num_seqs=max_num_seqs,
         max_model_len=max_model_len,
         gpu_memory_utilization=gpu_memory_utilization,
+        enable_microbatching=enable_microbatching,
         quantization=quantization,
     )
     outputs = llm.generate(prompts, sampling_params)
@@ -219,6 +231,7 @@ if __name__ == "__main__":
                 args.max_num_seqs,
                 args.max_model_len,
                 args.gpu_memory_utilization,
+                args.enable_microbatching,
                 args.quantization,
             ),
         )

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import pplx_kernels as pplx
 import torch
@@ -89,7 +89,7 @@ class PplxPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
     def num_dispatchers(self) -> int:
         return self.num_dispatchers_
 
-    def prepare(
+    def prepare_async(
         self,
         a1: torch.Tensor,
         a1_scale: Optional[torch.Tensor],
@@ -100,9 +100,7 @@ class PplxPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
         expert_map: Optional[torch.Tensor],
         apply_router_weight_on_input: bool,
         quant_config: FusedMoEQuantConfig,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor],
-               Optional[mk.ExpertTokensMetadata], Optional[torch.Tensor],
-               Optional[torch.Tensor]]:
+    ) -> tuple[Callable, mk.ReceiverType]:
         num_tokens = a1.size(0)  # M
         hidden_dim = a1.size(-1)  # K
 
@@ -207,7 +205,36 @@ class PplxPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
             dp_x_scale=a1q_scale,
             indices=topk_ids.view(dtype=torch.uint32),
             bound_m=bound_m,
+            do_send=True,
+            do_recv=False,
         )
+
+        hook = lambda: self.a2a.dispatch(
+            out_expert_num_tokens=expert_num_tokens,
+            out_expert_x=expert_x,
+            out_expert_x_scale=expert_x_scale,
+            dp_x=a1q,
+            dp_x_scale=a1q_scale,
+            indices=topk_ids,
+            bound_m=bound_m,
+            do_send=False,
+            do_recv=True,
+        )
+
+        return (hook, lambda: self._receiver(
+            expert_num_tokens,
+            expert_x,
+            expert_x_scale,
+            orig_a_scale_block_shape,
+        ))
+
+    def _receiver(
+        self,
+        expert_num_tokens: torch.Tensor,
+        expert_x: torch.Tensor,
+        expert_x_scale: Optional[torch.Tensor],
+        orig_a_scale_block_shape: Optional[int],
+    ) -> mk.PrepareResultType:
 
         if expert_x_scale is not None:
             expert_x_scale = expert_x_scale[:, :, :orig_a_scale_block_shape]
@@ -217,6 +244,32 @@ class PplxPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
             expert_num_tokens=expert_num_tokens, expert_num_tokens_cpu=None)
 
         return expert_x, expert_x_scale, expert_tokens_meta, None, None
+
+    def prepare(
+        self,
+        a1: torch.Tensor,
+        a1_scale: Optional[torch.Tensor],
+        a2_scale: Optional[torch.Tensor],
+        topk_weights: torch.Tensor,
+        topk_ids: torch.Tensor,
+        num_experts: int,
+        expert_map: Optional[torch.Tensor],
+        apply_router_weight_on_input: bool,
+        quant_config: FusedMoEQuantConfig,
+    ) -> mk.PrepareResultType:
+        hook, receiver = self.prepare_async(
+            a1,
+            a1_scale,
+            a2_scale,
+            topk_weights,
+            topk_ids,
+            num_experts,
+            expert_map,
+            apply_router_weight_on_input,
+            quant_config,
+        )
+        hook()
+        return receiver()
 
     def finalize(
         self,
