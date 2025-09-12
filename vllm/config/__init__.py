@@ -606,6 +606,15 @@ class ModelConfig:
 
         self.hf_config = hf_config
         self.hf_text_config = get_hf_text_config(self.hf_config)
+
+        logger.error(
+            f"cwndmiao debug, self.hf_text_config= {self.hf_text_config}")
+        # TODO(miaotianxiang):
+        if self.hf_text_config.num_hidden_layers == 61:
+            self.hf_text_config.num_hidden_layers = 16
+            logger.error(
+                f"cwndmiao debug, MMMMMMMMMMMMMMMMMMMMMMMmock num_hidden_layers = {self.hf_text_config.num_hidden_layers}")
+
         self.attention_chunk_size = getattr(self.hf_text_config,
                                             "attention_chunk_size", None)
         self.encoder_config = self._get_encoder_config()
