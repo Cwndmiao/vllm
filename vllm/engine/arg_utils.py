@@ -307,7 +307,6 @@ class EngineArgs:
     enable_microbatching: bool = ParallelConfig.enable_microbatching
     microbatching_token_threshold: int = \
         ParallelConfig.microbatching_token_threshold
-    eplb_config: EPLBConfig = get_field(ParallelConfig, "eplb_config")
     enable_eplb: bool = ParallelConfig.enable_eplb
     num_redundant_experts: int = ParallelConfig.num_redundant_experts
     eplb_window_size: int = ParallelConfig.eplb_window_size

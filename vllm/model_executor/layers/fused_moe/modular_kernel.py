@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from math import prod
-from typing import Optional, final
+from typing import Callable, Optional, Union, final
 
 import torch
 
@@ -141,6 +141,29 @@ class TopKWeightAndReduce(ABC):
         function.
         """
         raise NotImplementedError
+
+
+#
+# PrepareResultType is a tuple of:
+# - quantized + dispatched a.
+# - quantized + dispatched a1_scales.
+# - Optional ExpertTokensMetadata containing gpu/cpu tensors
+#   as big as the number of local experts with the information about the
+#   number of tokens assigned to each local expert.
+# - Optional dispatched expert topk IDs
+# - Optional dispatched expert topk weight
+#
+# See `prepare` method below.
+#
+PrepareResultType = tuple[
+    torch.Tensor,
+    Optional[torch.Tensor],
+    Optional[ExpertTokensMetadata],
+    Optional[torch.Tensor],
+    Optional[torch.Tensor],
+]
+
+ReceiverType = Callable[[], PrepareResultType]
 
 
 # TODO: pass FusedMoEParallelConfig in as ctor parameter?
