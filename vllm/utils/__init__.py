@@ -3354,6 +3354,9 @@ def _add_prefix(file: TextIO, worker_name: str, pid: int) -> None:
     file_write = file.write
 
     def write_with_prefix(s: str):
+        # TODO(miaotianxiang):
+        if "VllmWorker" in prefix and "TP0" not in prefix:
+            return
         if not s:
             return
         if file.start_new_line:  # type: ignore[attr-defined]

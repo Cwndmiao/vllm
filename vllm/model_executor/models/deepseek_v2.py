@@ -904,7 +904,7 @@ class DeepseekV2ForCausalLM(nn.Module, SupportsPP, MixtureOfExperts):
                 if is_pp_missing_parameter(name, self):
                     continue
 
-                if name not in params_dict:
+                if name not in params_dict.keys():
                     continue
                 param = params_dict[name]
                 weight_loader = param.weight_loader
@@ -928,7 +928,7 @@ class DeepseekV2ForCausalLM(nn.Module, SupportsPP, MixtureOfExperts):
                     if is_pp_missing_parameter(name_mapped, self):
                         continue
 
-                    if name not in params_dict:
+                    if name_mapped not in params_dict.keys():
                         continue
                     param = params_dict[name_mapped]
                     # We should ask the weight loader to return success or not
@@ -964,7 +964,7 @@ class DeepseekV2ForCausalLM(nn.Module, SupportsPP, MixtureOfExperts):
                     if is_pp_missing_parameter(name, self):
                         continue
 
-                    if name not in params_dict:
+                    if name not in params_dict.keys():
                         continue
                     param = params_dict[name]
                     weight_loader = getattr(param, "weight_loader",
