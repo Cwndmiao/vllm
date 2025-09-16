@@ -891,10 +891,14 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         num_tokens_padded = num_tokens_unpadded + self.get_local_padding(
             num_tokens_unpadded)
         ubatch_slices, num_tokens_after_padding = \
-            ubatch_split(max_num_scheduled_tokens,
+            ubatch_split(#max_num_scheduled_tokens,
                          num_tokens_unpadded,
                          num_tokens_padded,
-                         self.vllm_config)
+                         self.vllm_config,
+                         scheduler_output,
+                         tokens)
+        logger.error(f"cwndmiao debug, _prepare_inputs, ubatch_slices: {ubatch_slices} \n"
+                     f"num_tokens_after_padding: {num_tokens_after_padding}")
 
         self.seq_lens_np[:num_reqs] = (
             self.input_batch.num_computed_tokens_cpu[:num_reqs] +
@@ -1057,9 +1061,12 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 if ubatch_slices is not None:
                     common_attn_metadata_list = split_attn_metadata(
                         ubatch_slices, common_attn_metadata)
+                    logger.error(f"cwndmiao debug, _prepare_inputs, split_attn_metadata\n"
+                                 f"{common_attn_metadata_list[0]=}\n"
+                                 f"{common_attn_metadata_list[1]=}")
                     for ubid, common_attn_metadata in enumerate(
                             common_attn_metadata_list):
-                        assert common_attn_metadata.max_query_len == 1
+                        #assert common_attn_metadata.max_query_len == 1
                         attn_metadata_i = (attn_group.get_metadata_builder(
                             ubatch_id=ubid).build(
                                 common_prefix_len=common_prefix_len,
@@ -2030,6 +2037,11 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         ), record_function_or_nullcontext("Forward"),
               self.maybe_get_kv_connector_output(scheduler_output) as
               kv_connector_output):
+            logger.error(f"cwndmiao debug, input_ids= {input_ids} \n"
+                         f"positions= {positions} \n"
+                         f"intermediate_tensors= {intermediate_tensors} \n"
+                         f"inputs_embeds= {inputs_embeds} \n"
+                         f"model_kwargs= {model_kwargs} \n")
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,
@@ -2037,6 +2049,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 inputs_embeds=inputs_embeds,
                 **model_kwargs,
             )
+            logger.error(f"cwndmiao debug, model_output= {model_output} \n")
 
         with record_function_or_nullcontext("Postprocess"):
             if self.use_aux_hidden_state_outputs:

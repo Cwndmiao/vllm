@@ -155,3 +155,8 @@ class SchedulerOutput:
 
     # KV Cache Connector metadata.
     kv_connector_metadata: Optional[KVConnectorMetadata] = None
+
+    # TODO(miaotianxiang): tbo related
+    tbo_split_seq_index: Optional[int] = None
+    tbo_split_token_index: Optional[int] = None
+    is_two_chunk_split: bool = False

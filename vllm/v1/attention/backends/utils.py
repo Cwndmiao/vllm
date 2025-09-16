@@ -7,6 +7,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, make_dataclass
 from typing import (TYPE_CHECKING, Any, Callable, ClassVar, Generic, Optional,
                     TypeVar)
+import copy
 
 import numpy as np
 import torch
@@ -26,7 +27,7 @@ from vllm.distributed.kv_transfer.kv_connector.utils import (
     get_kv_connector_cache_layout)
 from vllm.logger import init_logger
 from vllm.v1.kv_cache_interface import AttentionSpec
-from vllm.v1.worker.ubatch_utils import UBatchSlice
+from vllm.v1.worker.ubatch_utils import UBatchSlice, UBatchTwoChunk
 
 logger = init_logger(__name__)
 _KV_CACHE_LAYOUT_OVERRIDE = None
@@ -68,7 +69,7 @@ class CommonAttentionMetadata:
 
 def slice_query_start_locs(
     query_start_loc: torch.Tensor,
-    request_slice: slice,
+    ubatch_slice: UBatchSlice,
 ) -> torch.Tensor:
     """
     Creates a new query_start_loc that corresponds to the requests in 
@@ -77,9 +78,75 @@ def slice_query_start_locs(
     Note: This function creates a new tensor to hold the new query_start_locs.
     This will break cudagraph compatibility.
     """
-    return query_start_loc[request_slice.start: request_slice.stop + 1] -\
-        query_start_loc[request_slice.start]
+    request_slice = ubatch_slice.request_slice
+    token_slice = ubatch_slice.token_slice
 
+    if ubatch_slice.is_two_chunk_split == UBatchTwoChunk.FIRST_CHUNK_SPLIT:
+        loc = copy.deepcopy(query_start_loc[request_slice.start: request_slice.stop + 1])
+        loc -= query_start_loc[request_slice.start]
+        loc[-1] = token_slice.stop
+        return loc
+    elif ubatch_slice.is_two_chunk_split == UBatchTwoChunk.SECOND_CHUNK_SPLIT:
+        loc = copy.deepcopy(query_start_loc[request_slice.start: request_slice.stop + 1])
+        loc -= token_slice.start
+        loc[0] = 0
+        return loc
+    else:
+        assert ubatch_slice.is_two_chunk_split == UBatchTwoChunk.NO_CHUNK_SPLIT
+        return query_start_loc[request_slice.start: request_slice.stop + 1] -\
+            query_start_loc[request_slice.start]
+
+def slice_seq_lens(
+    seq_lens: torch.Tensor,
+    ubatch_slice: UBatchSlice,
+) -> torch.Tensor:
+    """
+    Creates a new seq_lens that corresponds to the requests in 
+    request_slice.
+
+    Note: This function creates a new tensor to hold the new seq_lens.
+    This will break cudagraph compatibility.
+    """
+    request_slice = ubatch_slice.request_slice
+    token_slice = ubatch_slice.token_slice
+
+    #logger.error(f"cwndmiao debug, slice_seq_lens, {seq_lens=}, {ubatch_slice=}")
+    if ubatch_slice.is_two_chunk_split == UBatchTwoChunk.FIRST_CHUNK_SPLIT:
+        ret = copy.deepcopy(seq_lens[request_slice])
+        ret[-1] -= (ubatch_slice.full_len - ubatch_slice.chunk_len)
+        return ret
+    elif ubatch_slice.is_two_chunk_split == UBatchTwoChunk.SECOND_CHUNK_SPLIT:
+        ret = copy.deepcopy(seq_lens[request_slice])
+        return ret
+    else:
+        ret = copy.deepcopy(seq_lens[request_slice])
+        return ret
+
+def slice_num_computed_tokens(
+    num_computed_tokens: torch.Tensor,
+    ubatch_slice: UBatchSlice,
+) -> torch.Tensor:
+    """
+    Creates a new num_computed_tokens that corresponds to the requests in 
+    request_slice.
+
+    Note: This function creates a new tensor to hold the new num_computed_tokens.
+    This will break cudagraph compatibility.
+    """
+    request_slice = ubatch_slice.request_slice
+    token_slice = ubatch_slice.token_slice
+
+    #logger.error(f"cwndmiao debug, slice_num_computed_tokens, {num_computed_tokens=}, {ubatch_slice=}")
+    if ubatch_slice.is_two_chunk_split == UBatchTwoChunk.FIRST_CHUNK_SPLIT:
+        ret = copy.deepcopy(num_computed_tokens[request_slice])
+        return ret
+    elif ubatch_slice.is_two_chunk_split == UBatchTwoChunk.SECOND_CHUNK_SPLIT:
+        ret = copy.deepcopy(num_computed_tokens[request_slice])
+        ret[0] += ubatch_slice.full_len - ubatch_slice.chunk_len
+        return ret
+    else:
+        ret = copy.deepcopy(num_computed_tokens[request_slice])
+        return ret
 
 def _make_metadata_with_slice(
         ubatch_slice: UBatchSlice,
@@ -92,18 +159,23 @@ def _make_metadata_with_slice(
     request_slice = ubatch_slice.request_slice
     token_slice = ubatch_slice.token_slice
 
+    #logger.error(f"cwndmiao debug, _make_metadata_with_slice, attn_metadata= {attn_metadata.query_start_loc}, ubatch_slice= {ubatch_slice}")
     query_start_loc = slice_query_start_locs(attn_metadata.query_start_loc,
-                                             request_slice)
+                                             ubatch_slice)
     assert len(query_start_loc) >= 2, (
         f"query_start_loc must have at least 2 elements, "
         f"got {len(query_start_loc)}")
     query_start_loc_cpu = slice_query_start_locs(
-        attn_metadata.query_start_loc_cpu, request_slice)
+        attn_metadata.query_start_loc_cpu, ubatch_slice)
 
-    seq_lens = attn_metadata.seq_lens[request_slice]
-    seq_lens_cpu = attn_metadata.seq_lens_cpu[request_slice]
-    num_computed_tokens_cpu = attn_metadata.num_computed_tokens_cpu[
-        request_slice]
+    #seq_lens = attn_metadata.seq_lens[request_slice]
+    seq_lens = slice_seq_lens(attn_metadata.seq_lens, ubatch_slice)
+    #seq_lens_cpu = attn_metadata.seq_lens_cpu[request_slice]
+    seq_lens_cpu = slice_seq_lens(attn_metadata.seq_lens_cpu, ubatch_slice)
+    #num_computed_tokens_cpu = attn_metadata.num_computed_tokens_cpu[
+    #    request_slice]
+    num_computed_tokens_cpu = slice_num_computed_tokens(
+        attn_metadata.num_computed_tokens_cpu, ubatch_slice)
 
     num_requests = request_slice.stop - request_slice.start
     num_actual_tokens = token_slice.stop - token_slice.start
