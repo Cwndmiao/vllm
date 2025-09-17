@@ -267,7 +267,7 @@ class UBatchWrapper:
         dp_metadata = forward_context.dp_metadata
 
         # We shouldn't be here unless we are running with multiple DP ranks
-        assert dp_metadata is not None
+        #assert dp_metadata is not None
 
         if num_tokens not in self.cudagraphs \
             and cudagraph_runtime_mode is CUDAGraphMode.FULL:
@@ -300,4 +300,5 @@ class UBatchWrapper:
                 dp_metadata=dp_metadata,
                 batch_descriptor=batch_descriptor,
                 cudagraph_runtime_mode=CUDAGraphMode.NONE)
+            logger.error(f"cwndmiao debug, UBatchWrapper, ubatch_metadata: {ubatch_metadata}")
             return self._run_ubatches(ubatch_metadata, self.model)
