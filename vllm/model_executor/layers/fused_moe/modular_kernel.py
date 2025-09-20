@@ -185,16 +185,9 @@ class FusedMoEPrepareAndFinalize(ABC):
         expert_map: Optional[torch.Tensor],
         apply_router_weight_on_input: bool,
         quant_config: FusedMoEQuantConfig,
-    ) -> tuple[
-            torch.Tensor,
-            Optional[torch.Tensor],
-            Optional[ExpertTokensMetadata],
-            Optional[torch.Tensor],
-            Optional[torch.Tensor],
-    ]:
+    ) -> PrepareResultType:
         """
-        Perform any quantization (and/or) dispatching needed
-        for this kernel.
+        Perform any quantization (and/or) dispatching needed for this kernel.
         - a1: The (unquantized) input to the MoE layer.
         - a1_scale: Optional scales for a1
         - a2_scale: Optional scales for the second MoE gemm.  Required to make
@@ -311,7 +304,7 @@ class FusedMoEPrepareAndFinalize(ABC):
     def max_num_tokens_per_rank(self) -> Optional[int]:
         """
         Some PrepareFinalize All2All implementations are batched. Meaning,
-        they can processes only as set of tokens at a time. This
+        they can process only as set of tokens at a time. This
         function returns the batch size i.e the maximum number of tokens
         the implementation can process at a time.
         Return None if there are no such restrictions.
@@ -543,10 +536,12 @@ class FusedMoEModularKernel(torch.nn.Module):
         self,
         prepare_finalize: FusedMoEPrepareAndFinalize,
         fused_experts: FusedMoEPermuteExpertsUnpermute,
+        shared_experts: Optional[torch.nn.Module] = None,
     ):
         super().__init__()
         self.prepare_finalize = prepare_finalize
         self.fused_experts = fused_experts
+        self.shared_experts = shared_experts
         assert prepare_finalize.activation_format == \
             fused_experts.activation_formats[0], (
                 f"{prepare_finalize.__class__.__name__}."
@@ -782,7 +777,7 @@ class FusedMoEModularKernel(torch.nn.Module):
         a1_scale: Optional[torch.Tensor] = None,
         a2_scale: Optional[torch.Tensor] = None,
         apply_router_weight_on_input: bool = False,
-    ) -> torch.Tensor:
+    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """
         This function computes a Mixture of Experts (MoE) layer using two sets
         of weights, w1 and w2, and top-k gating mechanism.
@@ -924,4 +919,7 @@ class FusedMoEModularKernel(torch.nn.Module):
             self.fused_experts.finalize_weight_and_reduce_impl(),
         )
 
-        return output
+        if self.shared_experts is None:
+            return output
+        else:
+            return shared_output, output
