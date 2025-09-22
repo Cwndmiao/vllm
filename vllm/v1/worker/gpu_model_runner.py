@@ -847,20 +847,20 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         # E.g., [2, 5, 3] -> [0, 0, 1, 1, 1, 1, 1, 2, 2, 2]
         req_indices = np.repeat(self.arange_np[:num_reqs],
                                 num_scheduled_tokens)
-        logger.error(f"cwndmiao debug, _prepare_inputs, num_scheduled_tokens: {num_scheduled_tokens} max_num_scheduled_tokens: {max_num_scheduled_tokens} req_indices: {req_indices}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, num_scheduled_tokens: {num_scheduled_tokens} max_num_scheduled_tokens: {max_num_scheduled_tokens} req_indices: {req_indices}")
 
         # cu_num_tokens: [2, 5, 3] -> [2, 7, 10]
         # arange: [0, 1, 0, 1, 2, 3, 4, 0, 1, 2]
         cu_num_tokens, arange = self._get_cumsum_and_arange(
             num_scheduled_tokens)
-        logger.error(f"cwndmiao debug, _prepare_inputs, cu_num_tokens: {cu_num_tokens} arange: {arange}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, cu_num_tokens: {cu_num_tokens} arange: {arange}")
 
         # Get positions.
         positions_np = self.positions_np[:total_num_scheduled_tokens]
         np.add(self.input_batch.num_computed_tokens_cpu[req_indices],
                arange,
                out=positions_np)
-        logger.error(f"cwndmiao debug, _prepare_inputs, positions_np: {positions_np}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, positions_np: {positions_np}")
 
         # Calculate M-RoPE positions.
         # Only relevant for models using M-RoPE (e.g, Qwen2-VL)
@@ -873,7 +873,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         # where M is the max_model_len.
         token_indices = (positions_np +
                          req_indices * self.input_batch.token_ids_cpu.shape[1])
-        logger.error(f"cwndmiao debug, _prepare_inputs, token_indices: {token_indices}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, token_indices: {token_indices}")
 
         # NOTE(woosuk): We use torch.index_select instead of np.take here
         # because torch.index_select is much faster than np.take for large
@@ -882,8 +882,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                            0,
                            torch.from_numpy(token_indices),
                            out=self.input_ids_cpu[:total_num_scheduled_tokens])
-        logger.error(f"cwndmiao debug, _prepare_inputs, input_ids_cpu: {self.input_ids_cpu[:total_num_scheduled_tokens]}\n"
-                     f"input_ids_cpu.all: {self.input_ids_cpu}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, input_ids_cpu: {self.input_ids_cpu[:total_num_scheduled_tokens]}\n"
+        #             f"input_ids_cpu.all: {self.input_ids_cpu}")
 
         self.input_batch.block_table.compute_slot_mapping(
             req_indices, positions_np)
@@ -893,12 +893,12 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         # Prepare the attention metadata.
         self.query_start_loc_np[0] = 0
         self.query_start_loc_np[1:num_reqs + 1] = cu_num_tokens
-        logger.error(f"cwndmiao debug, _prepare_inputs, query_start_loc_np: {self.query_start_loc_np[:num_reqs + 1]}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, query_start_loc_np: {self.query_start_loc_np[:num_reqs + 1]}")
 
         num_tokens_unpadded = scheduler_output.total_num_scheduled_tokens
         num_tokens_padded = num_tokens_unpadded + self.get_local_padding(
             num_tokens_unpadded)
-        logger.error(f"cwndmiao debug, _prepare_inputs, num_tokens_unpadded: {num_tokens_unpadded}, num_tokens_padded: {num_tokens_padded}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, num_tokens_unpadded: {num_tokens_unpadded}, num_tokens_padded: {num_tokens_padded}")
         ubatch_slices, num_tokens_after_padding = \
             ubatch_split(#max_num_scheduled_tokens,
                          num_tokens_unpadded,
@@ -906,8 +906,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                          self.vllm_config,
                          scheduler_output,
                          tokens)
-        logger.error(f"cwndmiao debug, _prepare_inputs, ubatch_slices: {ubatch_slices} \n"
-                     f"num_tokens_after_padding: {num_tokens_after_padding}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, ubatch_slices: {ubatch_slices} \n"
+        #             f"num_tokens_after_padding: {num_tokens_after_padding}")
 
         self.seq_lens_np[:num_reqs] = (
             self.input_batch.num_computed_tokens_cpu[:num_reqs] +
@@ -916,7 +916,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         # Copy the tensors to the GPU.
         self.input_ids[:total_num_scheduled_tokens].copy_(
             self.input_ids_cpu[:total_num_scheduled_tokens], non_blocking=True)
-        logger.error(f"cwndmiao debug, _prepare_inputs, input_ids: {self.input_ids[:total_num_scheduled_tokens]}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, input_ids: {self.input_ids[:total_num_scheduled_tokens]}")
         if self.uses_mrope:
             # Only relevant for models using M-RoPE (e.g, Qwen2-VL)
             self.mrope_positions[:, :total_num_scheduled_tokens].copy_(
@@ -927,13 +927,13 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             self.positions[:total_num_scheduled_tokens].copy_(
                 self.positions_cpu[:total_num_scheduled_tokens],
                 non_blocking=True)
-        logger.error(f"cwndmiao debug, _prepare_inputs, positions: {self.positions[:total_num_scheduled_tokens]}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, positions: {self.positions[:total_num_scheduled_tokens]}")
 
         self.query_start_loc[:num_reqs + 1].copy_(
             self.query_start_loc_cpu[:num_reqs + 1], non_blocking=True)
         self.seq_lens[:num_reqs].copy_(self.seq_lens_cpu[:num_reqs],
                                        non_blocking=True)
-        logger.error(f"cwndmiao debug, _prepare_inputs, query_start_loc: {self.query_start_loc[:num_reqs + 1]}, seq_lens: {self.seq_lens[:num_reqs]}")
+        #logger.error(f"cwndmiao debug, _prepare_inputs, query_start_loc: {self.query_start_loc[:num_reqs + 1]}, seq_lens: {self.seq_lens[:num_reqs]}")
 
         # Fill unused with 0 for full cuda graph mode.
         self.seq_lens[num_reqs:].fill_(0)
@@ -1730,6 +1730,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             num_pad, num_tokens_after_padding = self.get_dp_padding(
                 num_input_tokens)
             num_input_tokens += num_pad
+            logger.error(f"cwndmiao debug, _preprocess, num_pad:{num_pad}, num_tokens_after_padding:{num_tokens_after_padding}, num_input_tokens:{num_input_tokens}")
         # if (self.compilation_config.cudagraph_mode != CUDAGraphMode.NONE
         #         and num_scheduled_tokens <= self.cudagraph_batch_sizes[-1]):
         #     # Use CUDA graphs.
@@ -2054,7 +2055,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                          f"positions= {positions} \n"
                          f"intermediate_tensors= {intermediate_tensors} \n"
                          f"inputs_embeds= {inputs_embeds} \n"
-                         f"model_kwargs= {model_kwargs} \n")
+                         f"model_kwargs= {model_kwargs} \n"
+                         f"attn_metadata= {(attn_metadata[0]['model.layers.0.self_attn.attn'], attn_metadata[1]['model.layers.0.self_attn.attn']) if isinstance(attn_metadata, list) else attn_metadata['model.layers.0.self_attn.attn']}")
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,
