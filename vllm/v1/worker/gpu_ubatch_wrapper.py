@@ -150,6 +150,7 @@ class UBatchWrapper:
         @torch.inference_mode()
         def _ubatch_thread(results, model, ubatch_metadata):
             with ubatch_metadata.context:
+                logger.error(f"cwndmiao debug, _ubatch_thread, thread_id: {threading.get_ident()}, {ubatch_metadata.input_ids=}")
                 model_output = model(
                     input_ids=ubatch_metadata.input_ids,
                     positions=ubatch_metadata.positions,

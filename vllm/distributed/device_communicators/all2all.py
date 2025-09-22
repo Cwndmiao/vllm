@@ -164,7 +164,7 @@ class DeepEPHTAll2AllManager(DeepEPAll2AllManagerBase):
     def __init__(self, cpu_group):
         super().__init__(cpu_group)
 
-    def _make_all2all_kwargs(self) -> dict[Any, Any]:
+    def _make_all2all_kwargs(self, num_global_experts) -> dict[Any, Any]:
         # Defaults for internode and intranode are taken from DeepEP tests.
         num_nvl_bytes = 1024 * 1024 * 1024
         num_rdma_bytes = None
@@ -183,19 +183,20 @@ class DeepEPHTAll2AllManager(DeepEPAll2AllManagerBase):
                     num_nvl_bytes=num_nvl_bytes,
                     num_rdma_bytes=num_rdma_bytes,
                     low_latency_mode=False,
-                    num_qps_per_rank=num_qps_per_rank)
+                    num_qps_per_rank=num_qps_per_rank,
+                    num_experts=num_global_experts)
 
     def get_handle(self, kwargs):
 
-        assert len(kwargs) == 0, (
-            "DeepEPHTAll2AllManager expects no arguments. All the required "
-            "args are computed in the Manager itself.")
+        #assert len(kwargs) == 0, (
+        #    "DeepEPHTAll2AllManager expects no arguments. All the required "
+        #    "args are computed in the Manager itself.")
 
         import deep_ep
-        buffer_kwargs = self._make_all2all_kwargs()
+        buffer_kwargs = self._make_all2all_kwargs(kwargs["num_global_experts"])
         logger.debug("DeepEP all2all args %s", buffer_kwargs)
-        handle: deep_ep.Buffer = self.handle_cache.get_or_create(
-            buffer_kwargs, deep_ep.Buffer)
+        handle: deep_ep.BufferV2 = self.handle_cache.get_or_create(
+            buffer_kwargs, deep_ep.BufferV2)
         # It is dangerous to set num sms outside this function. num_sms is not
         # a part of the hash-key that identifies this object. If we are in a
         # situation where we make objects with different num_sms, the hash key
@@ -233,18 +234,20 @@ class DeepEPLLAll2AllManager(DeepEPAll2AllManagerBase):
         # Defaults for internode and intranode are taken from DeepEP tests.
         num_nvl_bytes = 1024 * 1024 * 1024
         num_qps_per_rank = num_local_experts
-        num_rdma_bytes = deep_ep.Buffer.get_low_latency_rdma_size_hint(
+        num_rdma_bytes = deep_ep.BufferV2.get_low_latency_rdma_size_hint(
             num_max_dispatch_tokens_per_rank=max_num_tokens_per_dp_rank,
-            hidden=token_hidden_size,
+            hidden=max_num_tokens_per_dp_rank,
             num_ranks=num_ep_ranks,
             num_experts=num_global_experts)
-
+        #print("ll config")
+        #print(max_num_tokens_per_dp_rank, max_num_tokens_per_dp_rank, num_ep_ranks, num_global_experts)
         assert num_rdma_bytes is not None
         return dict(group=self.cpu_group,
                     num_nvl_bytes=num_nvl_bytes,
                     num_rdma_bytes=num_rdma_bytes,
                     low_latency_mode=True,
-                    num_qps_per_rank=num_qps_per_rank)
+                    num_qps_per_rank=num_qps_per_rank,
+                    num_experts=num_global_experts)
 
     def get_handle(self, kwargs):
         """
@@ -254,6 +257,6 @@ class DeepEPLLAll2AllManager(DeepEPAll2AllManagerBase):
         import deep_ep
         buffer_kwargs = self._make_all2all_kwargs(**kwargs)
         logger.debug("DeepEP all2all args %s", buffer_kwargs)
-        handle: deep_ep.Buffer = self.handle_cache.get_or_create(
-            buffer_kwargs, deep_ep.Buffer)
+        handle: deep_ep.BufferV2 = self.handle_cache.get_or_create(
+            buffer_kwargs, deep_ep.BufferV2)
         return handle

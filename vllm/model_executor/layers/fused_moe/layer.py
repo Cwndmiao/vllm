@@ -5,6 +5,7 @@ from abc import abstractmethod
 from collections.abc import Iterable
 from enum import Enum
 from typing import Callable, Literal, Optional, overload
+import nvtx
 
 import torch
 import torch.nn.functional as F
@@ -844,6 +845,8 @@ class FusedMoE(CustomOp):
         quant_method: Optional[QuantizeMethodBase] = None
         quant_method = (UnquantizedFusedMoEMethod(moe) if quant_config is None
                         else quant_config.get_quant_method(self, prefix))
+        logger.error(f"cwndmiao debug, FusedMoE.__init__, quant_config_is_none= {quant_config is None}, "
+                     f"quant_method= {quant_method}, prefix= {prefix}")
 
         assert quant_method is not None
         assert isinstance(quant_method, FusedMoEMethodBase)
@@ -1382,6 +1385,7 @@ class FusedMoE(CustomOp):
         self.logical_replica_count = logical_replica_count[moe_layer_idx]
 
     @staticmethod
+    @nvtx.annotate("FusedMoE.select_experts", color="red")
     def select_experts(
         hidden_states: torch.Tensor,
         router_logits: torch.Tensor,
@@ -1426,6 +1430,7 @@ class FusedMoE(CustomOp):
 
         # DeepSeekv2 uses grouped_top_k
         if use_grouped_topk:
+            logger.error(f"cwndmiao debug, FusedMoE, select_experts, use_grouped_topk")
             assert topk_group is not None
             assert num_expert_group is not None
             topk_weights, topk_ids = grouped_topk(
@@ -1440,6 +1445,7 @@ class FusedMoE(CustomOp):
             if indices_type is not None:
                 topk_ids = topk_ids.to(dtype=indices_type)
         elif custom_routing_function is None:
+            logger.error(f"cwndmiao debug, FusedMoE, select_experts, fused_topk")
             topk_weights, topk_ids, token_expert_indices = fused_topk(
                 hidden_states=hidden_states,
                 gating_output=router_logits,
@@ -1448,6 +1454,7 @@ class FusedMoE(CustomOp):
                 indices_type=indices_type,
             )
         else:
+            logger.error(f"cwndmiao debug, FusedMoE, select_experts, custom_routing_function")
             topk_weights, topk_ids = custom_routing_function(
                 hidden_states=hidden_states,
                 gating_output=router_logits,
@@ -1544,6 +1551,7 @@ class FusedMoE(CustomOp):
 
     def forward(self, hidden_states: torch.Tensor,
                 router_logits: torch.Tensor):
+        logger.error(f"cwndmiao debug, FusedMoE, forward, layer name: {self.layer_name}")
         og_hidden_states = hidden_states.shape[-1]
         if self.hidden_size != og_hidden_states:
             hidden_states = F.pad(hidden_states,
@@ -1555,6 +1563,7 @@ class FusedMoE(CustomOp):
         if current_platform.is_tpu():
             return self.forward_impl(hidden_states, router_logits)
         else:
+            logger.error(f"cwndmiao debug, FusedMoE, forward, torch.ops.vllm.moe_forward")
             return torch.ops.vllm.moe_forward(
                 hidden_states, router_logits,
                 self.layer_name)[..., :og_hidden_states]
@@ -1653,12 +1662,18 @@ class FusedMoE(CustomOp):
 
     def forward_impl(self, hidden_states: torch.Tensor,
                      router_logits: torch.Tensor):
+        logger.error(f"cwndmiao debug, FusedMoE, forward_impl, layer name: {self.layer_name}")
+
         assert self.quant_method is not None
         # Route to the chunked forward path using the FlashInfer Cutlass kernel
         # only when data parallelism (DP) is enabled.
         use_flashinfer_cutlass_kernels = (
             self.dp_size > 1
             and self.moe_parallel_config.use_flashinfer_cutlass_kernels)
+        logger.error(f"cwndmiao debug, FusedMoE, forward_impl, use_pplx_kernels: {self.moe_parallel_config.use_pplx_kernels}, "
+                     f"use_deepep_ht_kernels: {self.moe_parallel_config.use_deepep_ht_kernels}, "
+                     f"use_deepep_ll_kernels: {self.moe_parallel_config.use_deepep_ll_kernels}, "
+                     f"use_flashinfer_cutlass_kernels: {use_flashinfer_cutlass_kernels}")
         if (self.moe_parallel_config.use_pplx_kernels
                 or self.moe_parallel_config.use_deepep_ll_kernels
                 or use_flashinfer_cutlass_kernels):
@@ -1673,6 +1688,7 @@ class FusedMoE(CustomOp):
                 hidden_states, router_logits)
 
         # Matrix multiply.
+        nvtx.push_range("self.quant_method.apply") 
         final_hidden_states = self.quant_method.apply(
             layer=self,
             x=hidden_states,
@@ -1694,6 +1710,7 @@ class FusedMoE(CustomOp):
             logical_to_physical_map=self.logical_to_physical_map,
             logical_replica_count=self.logical_replica_count,
         )
+        nvtx.pop_range()
 
         if do_naive_dispatch_combine:
             final_hidden_states = get_ep_group().combine(final_hidden_states)
@@ -1763,6 +1780,7 @@ def moe_forward(hidden_states: torch.Tensor, router_logits: torch.Tensor,
     self = forward_context.no_compile_layers[layer_name]
     assert self.quant_method is not None
 
+    logger.error(f"cwndmiao debug, moe_forward, layer name: {layer_name}")
     return self.forward_impl(hidden_states, router_logits)
 
 

@@ -26,6 +26,7 @@
 import typing
 from collections.abc import Callable, Iterable
 from typing import Any, Optional, Union
+import nvtx
 
 import torch
 from torch import nn
@@ -60,6 +61,8 @@ from .utils import (PPMissingLayer, is_pp_missing_parameter,
                     make_empty_intermediate_tensors_factory, make_layers,
                     maybe_prefix)
 
+import logging
+logger = logging.getLogger(__name__)
 
 class DeepseekV2MLP(nn.Module):
 
@@ -185,12 +188,14 @@ class DeepseekV2MoE(nn.Module):
         router_logits, _ = self.gate(hidden_states)
 
         if hidden_states.dtype != torch.float16:
+            logger.error(f"cwndmiao debug, DeepseekV2MoE.forward 1, self.experts= {self.experts}")
             final_hidden_states = self.experts(
                 hidden_states=hidden_states,
                 router_logits=router_logits) * self.routed_scaling_factor
         else:
             # Fix FP16 overflow
             # See DeepseekV2DecoderLayer for more details.
+            logger.error(f"cwndmiao debug, DeepseekV2MoE.forward 2, self.experts= {self.experts}")
             final_hidden_states = self.experts(hidden_states=hidden_states,
                                                router_logits=router_logits)
         if shared_output is not None:
@@ -494,6 +499,7 @@ class DeepseekV2MLAAttention(nn.Module):
         self.prefix = prefix
         self.debug_layer_idx = int(self.prefix.split(".")[-2])
 
+    @nvtx.annotate("DeepseekV2MLAAttention", color="green")
     def forward(
         self,
         positions: torch.Tensor,
