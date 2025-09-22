@@ -5,6 +5,7 @@ import multiprocessing
 import time
 import weakref
 from typing import Optional
+import nvtx
 
 import msgspec.msgpack
 import zmq
@@ -339,6 +340,7 @@ class DPCoordinatorProc:
                     publish_front.send(msgspec.msgpack.encode(message))
 
     @staticmethod
+    @nvtx.annotate("DPCoordinatorProc._send_start_wave", color="blue")
     def _send_start_wave(socket: zmq.Socket, wave: int,
                          exclude_engine_index: Optional[int]):
         """Broadcast the START_DP_WAVE message to all the engines.

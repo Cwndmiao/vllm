@@ -3355,7 +3355,9 @@ def _add_prefix(file: TextIO, worker_name: str, pid: int) -> None:
 
     def write_with_prefix(s: str):
         # TODO(miaotianxiang):
-        if "VllmWorker" in prefix and "TP0" not in prefix:
+        #if "VllmWorker" in prefix and "TP0" not in prefix:
+        #    return
+        if "EngineCore_" in prefix and "EngineCore_0" not in prefix:
             return
         if not s:
             return

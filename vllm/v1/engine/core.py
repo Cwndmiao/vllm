@@ -12,6 +12,7 @@ from contextlib import ExitStack, contextmanager
 from inspect import isclass, signature
 from logging import DEBUG
 from typing import Any, Callable, Optional, TypeVar, Union
+import nvtx
 
 import msgspec
 import zmq
@@ -273,6 +274,7 @@ class EngineCore:
                                   self.scheduler.make_stats())
             raise err
 
+    @nvtx.annotate("EngineCore.step", color="blue")
     def step(self) -> tuple[dict[int, EngineCoreOutputs], bool]:
         """Schedule, execute, and make output.
 
@@ -376,6 +378,7 @@ class EngineCore:
     def is_sleeping(self) -> bool:
         return self.model_executor.is_sleeping
 
+    @nvtx.annotate("EngineCore.execute_dummy_batch", color="yellow")
     def execute_dummy_batch(self):
         self.model_executor.collective_rpc("execute_dummy_batch")
 

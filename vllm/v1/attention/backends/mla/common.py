@@ -191,6 +191,7 @@ import functools
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Optional, TypeVar, Union
+import nvtx
 
 import torch
 
@@ -1126,6 +1127,7 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
     ) -> torch.Tensor:
         raise NotImplementedError
 
+    @nvtx.annotate("MLACommonImpl.forward", color="red")
     def forward(
         self,
         layer: AttentionLayer,

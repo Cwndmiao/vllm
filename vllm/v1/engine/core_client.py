@@ -967,6 +967,9 @@ class DPAsyncMPClient(AsyncMPClient):
                  client_addresses: Optional[dict[str, str]] = None,
                  client_count: int = 1,
                  client_index: int = 0):
+        import traceback
+        traceback.print_stack()
+
         self.current_wave = 0
 
         super().__init__(vllm_config, executor_class, log_stats,

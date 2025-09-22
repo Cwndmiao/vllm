@@ -137,8 +137,6 @@ def ubatch_split(
     #              f"num_tokens_padded: {num_tokens_padded}, "
     #              f"max_num_scheduled_tokens: {max_num_scheduled_tokens}, "
     #              f"should_attempt_ubatching: {should_attempt_ubatching}")
-    # # TODO(miaotianxiang):
-    # should_attempt_ubatching = True
 
     # # Don't microbatch unless every other DP worker is also microbatching
     # num_tokens_after_padding = None
@@ -167,8 +165,14 @@ def ubatch_split(
 
     # return (ubatch_slices, num_tokens_after_padding)
 
+    # Check preconditions for microbatching
+    should_attempt_ubatching = \
+        parallel_config.enable_microbatching and \
+        num_tokens_unpadded >= \
+        parallel_config.microbatching_token_threshold
+    logger.error(f"cwndmiao debug, ubatch_split 1, should_attempt_ubatching: {should_attempt_ubatching}")
+
     # Don't microbatch unless every other DP worker is also microbatching
-    should_attempt_ubatching = True
     num_tokens_after_padding = None
     (should_ubatch, num_tokens_after_padding) = get_dp_padding_ubatch(
         num_tokens_unpadded, num_tokens_padded, should_attempt_ubatching,

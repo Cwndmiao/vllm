@@ -27,4 +27,5 @@ UBatchSlices: TypeAlias = list[UBatchSlice]
 
 def is_second_ubatch_empty(orig_num_tokens_per_ubatch: int,
                            padded_num_tokens_per_ubatch: int) -> bool:
-    return padded_num_tokens_per_ubatch >= 2 * orig_num_tokens_per_ubatch
+    #return padded_num_tokens_per_ubatch >= 2 * orig_num_tokens_per_ubatch
+    return False

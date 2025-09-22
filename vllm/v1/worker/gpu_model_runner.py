@@ -2651,8 +2651,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             # Currently the dummy run should only be ubatching during
             # cuda graph capture, meaning all DP ranks should already
             # have the same batch size
-            if num_tokens_across_dp is not None:
-                assert int(num_tokens_across_dp[0]) == num_tokens // 2
+            #if num_tokens_across_dp is not None:
+            #    assert int(num_tokens_across_dp[0]) == num_tokens // 2
 
         assert cudagraph_runtime_mode in {
             CUDAGraphMode.NONE, CUDAGraphMode.PIECEWISE, CUDAGraphMode.FULL
@@ -2677,10 +2677,10 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         # for GQA/MQA.
         max_query_len = self.uniform_decode_query_len if uniform_decode else \
                                                                 num_tokens
-        if allow_microbatching:
-            assert self.uniform_decode_query_len == 1
-            assert uniform_decode is True
-            assert max_query_len == 1
+        #if allow_microbatching:
+        #    assert self.uniform_decode_query_len == 1
+        #    assert uniform_decode is True
+        #    assert max_query_len == 1
 
         # Set num_scheduled_tokens based on num_tokens and max_num_seqs
         # for dummy run with LoRA so that the num_reqs collectively

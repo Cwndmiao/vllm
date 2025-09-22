@@ -622,6 +622,8 @@ def launch_core_engines(
         addresses.frontend_stats_publish_address = (
             coordinator.get_stats_publish_address())
 
+        import traceback
+        traceback.print_stack()
         logger.info("Started DP Coordinator process (PID: %d)",
                     coordinator.proc.pid)
     else:
