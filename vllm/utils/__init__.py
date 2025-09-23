@@ -940,6 +940,14 @@ def get_open_port() -> int:
     return _get_open_port()
 
 
+def get_open_ports_list(count: int = 5) -> list[int]:
+    """Get a list of open ports."""
+    ports = set()
+    while len(ports) < count:
+        ports.add(get_open_port())
+    return list(ports)
+
+
 def _get_open_port() -> int:
     port = envs.VLLM_PORT
     if port is not None:

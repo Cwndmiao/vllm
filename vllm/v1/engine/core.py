@@ -287,9 +287,19 @@ class EngineCore:
         if not self.scheduler.has_requests():
             return {}, False
         scheduler_output = self.scheduler.schedule()
+        # enable_prof = scheduler_output.total_num_scheduled_tokens > 1
+        enable_prof = False
+        import xtorch_ops
+        if enable_prof:
+            logger.error(f'zh7 debug, kunlun profiler start')
+            xtorch_ops.kunlun_profiler_start()
         model_output = self.execute_model_with_error_logging(
             self.model_executor.execute_model,  # type: ignore
             scheduler_output)
+
+        if enable_prof:
+            logger.error(f'zh7 debug, kunlun profiler end')
+            xtorch_ops.kunlun_profiler_end()
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output)  # type: ignore
 
