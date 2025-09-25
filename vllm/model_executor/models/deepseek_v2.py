@@ -188,14 +188,12 @@ class DeepseekV2MoE(nn.Module):
         router_logits, _ = self.gate(hidden_states)
 
         if hidden_states.dtype != torch.float16:
-            logger.error(f"cwndmiao debug, DeepseekV2MoE.forward 1, self.experts= {self.experts}")
             final_hidden_states = self.experts(
                 hidden_states=hidden_states,
                 router_logits=router_logits) * self.routed_scaling_factor
         else:
             # Fix FP16 overflow
             # See DeepseekV2DecoderLayer for more details.
-            logger.error(f"cwndmiao debug, DeepseekV2MoE.forward 2, self.experts= {self.experts}")
             final_hidden_states = self.experts(hidden_states=hidden_states,
                                                router_logits=router_logits)
         if shared_output is not None:

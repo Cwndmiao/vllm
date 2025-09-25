@@ -5,6 +5,9 @@ from typing import Callable, Optional, Union
 import deep_ep
 import torch
 
+import logging
+logger = logging.getLogger(__name__)
+
 import vllm.model_executor.layers.fused_moe.modular_kernel as mk
 from vllm.model_executor.layers.fused_moe.config import FusedMoEQuantConfig
 from vllm.model_executor.layers.fused_moe.topk_weight_and_reduce import (
@@ -68,6 +71,8 @@ class DeepEPHTPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
         a1_scale: Optional[torch.Tensor],
         quant_config: FusedMoEQuantConfig,
     ) -> Callable:
+
+        logger.error(f'zh7 debug, do_dispatch {self.async_preparek}')
 
         has_scales = token_scales is not None
 

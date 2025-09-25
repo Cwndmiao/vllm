@@ -760,7 +760,7 @@ def wait_for_engine_startup(
                 finished[coord_process.name] = coord_process.exitcode
             raise RuntimeError("Engine core initialization failed. "
                                "See root cause above. "
-                               f"Failed core proc(s): {finished}")
+                               f"Failed core proc(s): {finished} {events}")
 
         # Receive HELLO and READY messages from the input socket.
         eng_identity, ready_msg_bytes = handshake_socket.recv_multipart()

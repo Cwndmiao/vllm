@@ -3,8 +3,12 @@
 import threading
 from typing import Optional
 
+import logging
+logger = logging.getLogger(__name__)
+
 import torch
 
+import nvtx
 from vllm import forward_context
 from vllm.forward_context import ForwardContext
 from vllm.utils import current_stream
@@ -118,10 +122,16 @@ class UBatchContext:
             self.recv_hook = None
 
     def yield_(self):
-        self.current_stream = current_stream()
+        with nvtx.annotate("before yield, change stream", color="red"):
+            self.current_stream = current_stream()
+
+        # logger.error(f'zh7 debug, skip really yield')
         self._cpu_yield()
-        if self.current_stream != current_stream():
-            self.update_stream(self.current_stream)
+        # dbo_maybe_run_recv_hook()
+
+        with nvtx.annotate("after yield, may change stream", color="red"):
+            if self.current_stream != current_stream():
+                self.update_stream(self.current_stream)
 
     def yield_and_switch_from_compute_to_comm(self):
         assert current_stream() == self.compute_stream

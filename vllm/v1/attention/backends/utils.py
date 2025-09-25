@@ -110,7 +110,6 @@ def slice_seq_lens(
     request_slice = ubatch_slice.request_slice
     token_slice = ubatch_slice.token_slice
 
-    #logger.error(f"cwndmiao debug, slice_seq_lens, {seq_lens=}, {ubatch_slice=}")
     if ubatch_slice.is_two_chunk_split == UBatchTwoChunk.FIRST_CHUNK_SPLIT:
         ret = copy.deepcopy(seq_lens[request_slice])
         ret[-1] -= (ubatch_slice.full_len - ubatch_slice.chunk_len)

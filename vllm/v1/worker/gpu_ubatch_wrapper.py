@@ -125,6 +125,7 @@ class UBatchWrapper:
                                           ))
                 ubatch_threads.append(thread)
                 thread.start()
+                logger.error(f'zh7 debug, ubatch thread {thread} start')
             self.ready_barrier.wait()  # Wait for both threads to be ready
 
             # Capture the cudagraph
@@ -139,6 +140,7 @@ class UBatchWrapper:
                 ubatch_metadata[0].context.cpu_wait_event.set()
                 for thread in ubatch_threads:
                     thread.join()
+                logger.error(f'zh7 debug, all ubatch thread is finished')
                 sorted_results = [value for position, value in sorted(results)]
                 result = torch.cat(sorted_results, dim=0)
                 cudagraph_metadata.outputs = result
@@ -150,7 +152,6 @@ class UBatchWrapper:
         @torch.inference_mode()
         def _ubatch_thread(results, model, ubatch_metadata):
             with ubatch_metadata.context:
-                logger.error(f"cwndmiao debug, _ubatch_thread, thread_id: {threading.get_ident()}, {ubatch_metadata.input_ids=}")
                 model_output = model(
                     input_ids=ubatch_metadata.input_ids,
                     positions=ubatch_metadata.positions,
@@ -301,5 +302,4 @@ class UBatchWrapper:
                 dp_metadata=dp_metadata,
                 batch_descriptor=batch_descriptor,
                 cudagraph_runtime_mode=CUDAGraphMode.NONE)
-            logger.error(f"cwndmiao debug, UBatchWrapper, ubatch_metadata: {ubatch_metadata}")
             return self._run_ubatches(ubatch_metadata, self.model)

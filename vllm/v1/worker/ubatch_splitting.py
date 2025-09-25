@@ -63,7 +63,6 @@ def get_dp_padding_ubatch(
     if not should_attempt_ubatching:
         (should_ubatch, num_tokens_across_dp) = should_ubatch_with_num_tokens(
             False, 0, 0, vllm_config)
-        logger.error(f"cwndmiao debug, get_dp_padding_ubatch 1, should_ubatch: {should_ubatch}, num_tokens_across_dp: {num_tokens_across_dp}")
         assert should_ubatch is False
         assert num_tokens_across_dp is None
         return should_ubatch, num_tokens_across_dp
@@ -72,7 +71,6 @@ def get_dp_padding_ubatch(
     num_tokens_padded = round_up(num_tokens_padded, 2)
     num_tokens_per_ubatch = num_tokens_padded // 2
     should_ubatch = True
-    logger.error(f"cwndmiao debug, get_dp_padding_ubatch 2, should_ubatch: {should_ubatch}, num_tokens_per_ubatch: {num_tokens_per_ubatch}, num_tokens_padded: {num_tokens_padded}, num_tokens_unpadded: {num_tokens_unpadded}")
 
     # Sanity Check that the existing padding isn't giving us an empty second
     # ubatch. Abort if so
@@ -170,15 +168,12 @@ def ubatch_split(
         parallel_config.enable_microbatching and \
         num_tokens_unpadded >= \
         parallel_config.microbatching_token_threshold
-    logger.error(f"cwndmiao debug, ubatch_split 1, should_attempt_ubatching: {should_attempt_ubatching}")
 
     # Don't microbatch unless every other DP worker is also microbatching
     num_tokens_after_padding = None
     (should_ubatch, num_tokens_after_padding) = get_dp_padding_ubatch(
         num_tokens_unpadded, num_tokens_padded, should_attempt_ubatching,
         vllm_config)
-    logger.error(f"cwndmiao debug, ubatch_split 1, should_ubatch: {should_ubatch}, num_tokens_after_padding: {num_tokens_after_padding}, "
-                 f"num_tokens_unpadded: {num_tokens_unpadded}, num_tokens_padded: {num_tokens_padded}")
     if not should_ubatch:
         return (None, None)
 
@@ -204,13 +199,11 @@ def ubatch_split(
         #token_num_per_seq=token_num_per_seq,
         extend_seq_lens=tokens
     )
-    logger.error(f"cwndmiao debug, ubatch_split 2, {tokens=}, {scheduler_output.tbo_split_seq_index=}, {scheduler_output.tbo_split_token_index=}")
 
     _tbo_children_num_token_non_padded = torch.zeros((2,), dtype=torch.int32)
     _tbo_children_num_token_non_padded[...] = (
         TboForwardBatchPreparer.compute_tbo_children_num_token_non_padded(scheduler_output, tokens)
     )
-    logger.error(f"cwndmiao debug, ubatch_split 3, _tbo_children_num_token_non_padded: {_tbo_children_num_token_non_padded}")
 
     #TboForwardBatchPreparer.prepare_raw(
     #    scheduler_output,
@@ -229,7 +222,6 @@ def ubatch_split(
                     sum(tokens[:scheduler_output.tbo_split_seq_index + 1]) - scheduler_output.tbo_split_token_index if scheduler_output.is_two_chunk_split else 0,
                     tokens[scheduler_output.tbo_split_seq_index] if scheduler_output.is_two_chunk_split else 0)
     ]
-    logger.error(f"cwndmiao debug, ubatch_split 4, ubatch_slices= {ubatch_slices}")
 
     return (ubatch_slices, num_tokens_after_padding)
 
