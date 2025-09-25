@@ -1186,11 +1186,10 @@ class MLACommonImpl(MLAAttentionImpl[M], Generic[M]):
                 scale=layer._k_scale,
             )
 
-        with nvtx.annotate("zh7 debug stab"):
-            if has_prefill:
-                output[num_decode_tokens:] = self._forward_prefill(
-                    prefill_q, prefill_k_c_normed, prefill_k_pe, kv_cache,
-                    attn_metadata)
+        if has_prefill:
+            output[num_decode_tokens:] = self._forward_prefill(
+                prefill_q, prefill_k_c_normed, prefill_k_pe, kv_cache,
+                attn_metadata)
 
         if has_decode:
             assert attn_metadata.decode is not None

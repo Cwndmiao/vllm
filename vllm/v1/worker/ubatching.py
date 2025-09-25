@@ -73,6 +73,9 @@ class UBatchContext:
     def _restore_context(self):
         forward_context._forward_context = self.forward_context
         torch.cuda.set_stream(self.current_stream)
+        import os
+        ctx_idx = _THREAD_ID_TO_CONTEXT[threading.get_ident()]
+        os.environ['UBATCH_ID'] = str(ctx_idx)
 
     def update_stream(self, stream):
         self.current_stream = stream
