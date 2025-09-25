@@ -171,6 +171,19 @@ dbo_maybe_run_recv_hook = _register_ubatch_function(
 dbo_switch_to_comm_sync = _register_ubatch_function(
     UBatchContext.switch_to_comm_sync)
 
+def dbo_select_buffer(buffer):
+    if len(_THREAD_ID_TO_CONTEXT) > 0:
+        # 如果在ubatch thread中，则根据thread id选择对应的buffer
+        ctx_idx = _THREAD_ID_TO_CONTEXT[threading.get_ident()]
+        assert isinstance(buffer, list)
+        assert len(buffer) == 2
+        return buffer[ctx_idx]
+    elif isinstance(buffer, list):
+        # 如果不在ubatch thread中，则默认返回第一个
+        return buffer[0]
+    else:
+        # 如果未开启dbo，则直接返回原始buffer
+        return buffer
 
 def dbo_register_recv_hook(recv_hook):
     if len(_THREAD_ID_TO_CONTEXT) > 0:
