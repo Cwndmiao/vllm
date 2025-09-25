@@ -977,6 +977,7 @@ class CompressedTensorsW8A8Int8MoEMethod(CompressedTensorsMoEMethod):
         logical_to_physical_map: Optional[torch.Tensor] = None,
         logical_replica_count: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        #logger.error(f"cwndmiao debug, CompressedTensorsW8A8Int8MoEMethod apply, compressed_tensors_moe.py")
         assert self.fused_experts is None
 
         if enable_eplb:

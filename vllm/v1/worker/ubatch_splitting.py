@@ -168,6 +168,7 @@ def ubatch_split(
         parallel_config.enable_microbatching and \
         num_tokens_unpadded >= \
         parallel_config.microbatching_token_threshold
+    logger.error(f"cwndmiao debug, ubatch_split 0, should_attempt_ubatching: {should_attempt_ubatching}")
 
     # Don't microbatch unless every other DP worker is also microbatching
     num_tokens_after_padding = None
