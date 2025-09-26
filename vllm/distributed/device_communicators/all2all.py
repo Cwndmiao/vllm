@@ -137,7 +137,7 @@ class DeepEPAll2AllManagerBase(All2AllManagerBase):
         ), "DeepEP kernels not found. Please follow https://github.com/vllm-project/vllm/blob/main/tools/ep_kernels/README.md to install DeepEP kernels."  # noqa
         super().__init__(cpu_group)
         self.handle_cache = Cache()
-        self.handle_cache_1 = Cache()
+        self.handle_cache_dbo = Cache()
 
         # This is the DeepEP default. Stick to it till we can establish
         # reasonable defaults based on profiling.
@@ -204,11 +204,11 @@ class DeepEPHTAll2AllManager(DeepEPAll2AllManagerBase):
         # in get_or_create must be updated.
         handle.set_num_sms(self.num_sms)
 
-        enable_microbatching = kwargs.get("enable_microbatching", False)
-        if not enable_microbatching:
+        enable_dbo = kwargs.get("enable_dbo", False)
+        if not enable_dbo:
             return handle
         else:
-            handle_dbo: deep_ep.BufferV2 = self.handle_cache_1.get_or_create(
+            handle_dbo: deep_ep.BufferV2 = self.handle_cache_dbo.get_or_create(
                 buffer_kwargs, deep_ep.BufferV2)
             handle_dbo.set_num_sms(self.num_sms)
             return [handle, handle_dbo]
@@ -248,8 +248,6 @@ class DeepEPLLAll2AllManager(DeepEPAll2AllManagerBase):
             hidden=max_num_tokens_per_dp_rank,
             num_ranks=num_ep_ranks,
             num_experts=num_global_experts)
-        #print("ll config")
-        #print(max_num_tokens_per_dp_rank, max_num_tokens_per_dp_rank, num_ep_ranks, num_global_experts)
         assert num_rdma_bytes is not None
         return dict(group=self.cpu_group,
                     num_nvl_bytes=num_nvl_bytes,

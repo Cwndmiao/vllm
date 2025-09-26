@@ -39,7 +39,7 @@ def get_dp_padding_ubatch(
     1. Decides if each DP rank is going to microbatch. Either all ranks
     run with microbatching or none of them do. If this function decides
     not to run with microbatching. It will "abort" meaning that no padding
-    information will be returned to the caller. It will return (False, 0, None)
+    information will be returned to the caller. It will return (False, None)
 
     2. Determines the total number of tokens that each rank will run.
     All ranks will be padded out so that the run with the same number
@@ -55,9 +55,9 @@ def get_dp_padding_ubatch(
     """
     assert num_tokens_padded >= num_tokens_unpadded
     dp_size = vllm_config.parallel_config.data_parallel_size
-    #if dp_size == 1:
-    #    # Early exit.
-    #    return False, None
+    if dp_size == 1:
+        # Early exit.
+        return False, None
 
     # If this DP rank doesn't want to attempt microbatching
     if not should_attempt_ubatching:
@@ -75,8 +75,9 @@ def get_dp_padding_ubatch(
     # Sanity Check that the existing padding isn't giving us an empty second
     # ubatch. Abort if so
     if is_second_ubatch_empty(num_tokens_unpadded, num_tokens_padded):
-        logger.debug("Aborting ubatching %s %s", num_tokens_unpadded,
-                     num_tokens_padded)
+        logger.debug(
+            "Empty second µbatch detected: unpadded tokens: %s, padded "
+            "tokens: %s", num_tokens_unpadded, num_tokens_padded)
         should_ubatch = False
 
     # Note that we compute the number of padded tokens per ubatch
@@ -110,7 +111,7 @@ def ubatch_split(
     should be split into microbatches.
 
     Returns: tuple[
-        ubatch_slices: if this is set then all DP ranks have agreed to 
+        ubatch_slices: if this is set then all DP ranks have agreed to
         microbatch
         num_tokens_after_padding: A tensor containing the total number of
         tokens per-microbatch for each DP rank including padding. Will be
@@ -121,29 +122,23 @@ def ubatch_split(
     parallel_config = vllm_config.parallel_config
     # Don't bother with the should_ubatch handshaking unless microbatching
     # is enabled
-    if not parallel_config.enable_microbatching:
+    if not parallel_config.enable_dbo:
         return (None, None)
 
-    # # Check preconditions for microbatching
-    # should_attempt_ubatching = \
-    #     parallel_config.enable_microbatching and \
-    #     num_tokens_unpadded >= \
-    #     parallel_config.microbatching_token_threshold \
-    #     and max_num_scheduled_tokens == 1
-    # logger.error(f"cwndmiao debug, ubatch_split, parallel_config.enable_microbatching: {parallel_config.enable_microbatching}, "
-    #              f"num_tokens_unpadded: {num_tokens_unpadded} >= {parallel_config.microbatching_token_threshold}, "
-    #              f"num_tokens_padded: {num_tokens_padded}, "
-    #              f"max_num_scheduled_tokens: {max_num_scheduled_tokens}, "
-    #              f"should_attempt_ubatching: {should_attempt_ubatching}")
+    # Check preconditions for microbatching
+    should_attempt_ubatching = \
+        parallel_config.enable_dbo and \
+        num_tokens_unpadded >= \
+        parallel_config.dbo_decode_token_threshold
+    logger.error(f"cwndmiao debug, ubatch_split 0, should_attempt_ubatching: {should_attempt_ubatching}")
 
-    # # Don't microbatch unless every other DP worker is also microbatching
-    # num_tokens_after_padding = None
-    # (should_ubatch, num_tokens_after_padding) = get_dp_padding_ubatch(
-    #     num_tokens_unpadded, num_tokens_padded, should_attempt_ubatching,
-    #     vllm_config)
-    # logger.error(f"cwndmiao debug, ubatch_split, should_ubatch: {should_ubatch}, num_tokens_after_padding: {num_tokens_after_padding}")
-    # if not should_ubatch:
-    #     return (None, None)
+    # Don't microbatch unless every other DP worker is also microbatching
+    num_tokens_after_padding = None
+    (should_ubatch, num_tokens_after_padding) = get_dp_padding_ubatch(
+        num_tokens_unpadded, num_tokens_padded, should_attempt_ubatching,
+        vllm_config)
+    if not should_ubatch:
+        return (None, None)
 
     # # This doesn't actually pad the ubatch slices. It just initializes the
     # # split point to the padded value so that padding can be applied
@@ -162,21 +157,6 @@ def ubatch_split(
     # ]
 
     # return (ubatch_slices, num_tokens_after_padding)
-
-    # Check preconditions for microbatching
-    should_attempt_ubatching = \
-        parallel_config.enable_microbatching and \
-        num_tokens_unpadded >= \
-        parallel_config.microbatching_token_threshold
-    logger.error(f"cwndmiao debug, ubatch_split 0, should_attempt_ubatching: {should_attempt_ubatching}")
-
-    # Don't microbatch unless every other DP worker is also microbatching
-    num_tokens_after_padding = None
-    (should_ubatch, num_tokens_after_padding) = get_dp_padding_ubatch(
-        num_tokens_unpadded, num_tokens_padded, should_attempt_ubatching,
-        vllm_config)
-    if not should_ubatch:
-        return (None, None)
 
     # TODO(miaotianxiang): 搬迁自sglang
     #token_num_per_seq = get_token_num_per_seq(

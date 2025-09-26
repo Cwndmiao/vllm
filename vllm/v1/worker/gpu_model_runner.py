@@ -115,6 +115,7 @@ AttnMetadataDict: TypeAlias = dict[str, AttentionMetadata]
 PerLayerAttnMetadata: TypeAlias = Union[list[AttnMetadataDict],
                                         AttnMetadataDict]
 
+
 # Wrapper for ModelRunnerOutput to support overlapped execution.
 class AsyncGPUModelRunnerOutput(AsyncModelRunnerOutput):
 
@@ -160,6 +161,7 @@ class AsyncGPUModelRunnerOutput(AsyncModelRunnerOutput):
         output = self._model_runner_output
         output.sampled_token_ids = valid_sampled_token_ids
         return output
+
 
 class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
@@ -1603,7 +1605,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                        num_tokens: int) -> tuple[int, Optional[torch.Tensor]]:
         """
         Determines the total number of tokens that each rank will run.
-        All ranks will be padded out so that the run with the same number
+        All ranks will be padded out so that they run with the same number
         of tokens
 
         Returns: tuple[
@@ -1652,7 +1654,6 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             tp_size = self.vllm_config.parallel_config.tensor_parallel_size
             if self.vllm_config.compilation_config.pass_config. \
                 enable_sequence_parallelism and tp_size > 1:
-                from vllm.utils import round_up
                 num_tokens_padded = round_up(num_tokens_unpadded, tp_size)
 
         num_pad_tokens = num_tokens_padded - num_tokens_unpadded
@@ -2415,11 +2416,11 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         # wrap the model with full cudagraph wrapper if needed.
         if self.compilation_config.cudagraph_mode.has_full_cudagraphs() \
-            and not self.parallel_config.enable_microbatching:
+            and not self.parallel_config.enable_dbo:
             self.model = CUDAGraphWrapper(self.model,
                                           self.vllm_config,
                                           runtime_mode=CUDAGraphMode.FULL)
-        elif self.parallel_config.enable_microbatching:
+        elif self.parallel_config.enable_dbo:
             if self.compilation_config.cudagraph_mode.has_full_cudagraphs():
                 self.model = UBatchWrapper(self.model, self.vllm_config,
                                            CUDAGraphMode.FULL, self.device)
@@ -2641,13 +2642,13 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             skip_eplb: If True, skip EPLB state update.
             is_profile: If True, this is a profile run.
         """
-        ubatch_enabled = self.parallel_config.enable_microbatching
+        ubatch_enabled = self.parallel_config.enable_dbo
         num_tokens_across_dp = None
         num_pad = 0
         should_ubatch = False
         if ubatch_enabled:
             should_ubatch = num_tokens >= \
-                self.parallel_config.microbatching_token_threshold and \
+                self.parallel_config.dbo_decode_token_threshold and \
                 allow_microbatching
 
             (should_ubatch, num_tokens_across_dp) = get_dp_padding_ubatch(
@@ -3165,15 +3166,15 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 desc="Capturing CUDA graphs ({}, {})".format(
                     "decode" if uniform_decode else "mixed prefill-decode",
                     cudagraph_runtime_mode.name))
-        enable_microbatching = self.parallel_config.enable_microbatching
+        enable_dbo = self.parallel_config.enable_dbo
         # DBO Only supports running Full cudagraphs with uniform
         # decode lengths
-        if enable_microbatching and uniform_decode:
+        if enable_dbo and uniform_decode:
             for num_tokens in compilation_cases:
                 # If the number of tokens is greater than the microbatching
                 # threshold, don't generate a microbatched cudagraph
                 if (num_tokens
-                        < self.parallel_config.microbatching_token_threshold):
+                        < self.parallel_config.dbo_decode_token_threshold):
                     continue
 
                 # Warmup
@@ -3255,7 +3256,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                     self.vllm_config,
                     self.device,
                 ))
-                if self.parallel_config.enable_microbatching:
+                if self.parallel_config.enable_dbo:
                     attn_metadata_builders.append(
                         attn_backend.get_builder_cls()(
                             kv_cache_spec,

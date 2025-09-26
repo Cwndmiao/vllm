@@ -171,7 +171,7 @@ class FusedMoEParallelConfig:
 
     use_ep: bool  # whether to use EP or not
 
-    enable_microbatching: bool = False
+    enable_dbo: bool = False
 
     @property
     def use_all2all_kernels(self):
@@ -308,7 +308,7 @@ class FusedMoEParallelConfig:
                                       ep_size=ep_size,
                                       ep_rank=ep_rank,
                                       use_ep=True,
-                                      enable_microbatching=vllm_parallel_config.enable_microbatching)
+                                      enable_dbo=vllm_parallel_config.enable_dbo)
 
 
 # Adapted from pplx-kernels tests/all_to_all_utils.py

@@ -235,7 +235,7 @@ def initialize_kv_cache_for_kv_sharing(
             KV cache allocation.
         attn_groups: Optional list of attention groups. Layers in the same KV
             cache group may be placed in different attention groups if they
-            have different attention backends.  Currently only provided by 
+            have different attention backends.  Currently only provided by
             GPU model runner.
     """
     # mapping from layer name to tuple of (kv_cache_group_idx, attn_group_idx)

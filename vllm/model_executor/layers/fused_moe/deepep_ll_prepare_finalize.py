@@ -78,7 +78,6 @@ class DeepEPLLPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
         self,
         x: Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]],
         a1_scale: Optional[torch.Tensor],
-        a2_scale: Optional[torch.Tensor],
         a1_dtype: torch.dtype,
         quant_dtype: Union[torch.dtype, str, None],
         per_act_token_quant: bool,
@@ -113,6 +112,9 @@ class DeepEPLLPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
 
         return x, x_scales
 
+    def supports_async(self) -> bool:
+        return True
+
     def prepare_async(
         self,
         a1: torch.Tensor,
@@ -127,6 +129,9 @@ class DeepEPLLPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
     ) -> tuple[Callable, mk.ReceiverType]:
 
         hidden_size = a1.size(1)
+        assert hidden_size in self.SUPPORTED_HIDDEN_SIZES, \
+            (f"Hidden Size {hidden_size} not in supported list of hidden sizes"
+            f"{self.SUPPORTED_HIDDEN_SIZES}")
 
         a2a_idx = dbo_current_ubatch_id()
 
@@ -170,7 +175,7 @@ class DeepEPLLPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
         quant_config: FusedMoEQuantConfig,
     ) -> mk.PrepareResultType:
         expert_x, expert_x_scale = self._do_quant(
-            expert_x, a1_scale, a2_scale, a1.dtype, quant_config.quant_dtype,
+            expert_x, a1_scale, a1_dtype, quant_config.quant_dtype,
             quant_config.per_act_token_quant, quant_config.block_shape)
 
         expert_tokens_meta = mk.ExpertTokensMetadata(

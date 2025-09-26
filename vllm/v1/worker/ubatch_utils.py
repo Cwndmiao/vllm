@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from typing_extensions import TypeAlias
 
-
 import enum
 
 class UBatchTwoChunk(enum.Enum):
@@ -19,7 +18,6 @@ class UBatchSlice:
     is_two_chunk_split: UBatchTwoChunk = UBatchTwoChunk.NO_CHUNK_SPLIT
     chunk_len: int = 0  # valid only when is_two_chunk_split != NO_CHUNK_SPLIT
     full_len: int = 0  # valid only when is_two_chunk_split != NO_CHUNK_SPLIT
-
 
 
 UBatchSlices: TypeAlias = list[UBatchSlice]

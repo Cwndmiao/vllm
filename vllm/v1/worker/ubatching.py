@@ -128,7 +128,6 @@ class UBatchContext:
         with nvtx.annotate("before yield, change stream", color="red"):
             self.current_stream = current_stream()
 
-        # logger.error(f'zh7 debug, skip really yield')
         self._cpu_yield()
         # dbo_maybe_run_recv_hook()
 

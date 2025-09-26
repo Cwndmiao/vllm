@@ -2532,7 +2532,7 @@ class MultiModalConfig:
 
     skip_mm_profiling: bool = False
     """
-    When enabled, skips multimodal memory profiling and only profiles with 
+    When enabled, skips multimodal memory profiling and only profiles with
     language backbone model during engine initialization.
 
     This reduces engine startup time but shifts the responsibility to users for
@@ -2595,24 +2595,24 @@ class PoolerConfig:
     ## for embeddings models
     normalize: Optional[bool] = None
     """
-    Whether to normalize the embeddings outputs. 
+    Whether to normalize the embeddings outputs.
     """
     dimensions: Optional[int] = None
     """
-    Reduce the dimensions of embeddings if model 
+    Reduce the dimensions of embeddings if model
     support matryoshka representation.
     """
 
     ## for classification models
     activation: Optional[bool] = None
     """
-    Whether to apply activation function to the classification outputs. 
+    Whether to apply activation function to the classification outputs.
     """
 
     ## for reward models
     softmax: Optional[bool] = None
     """
-    Whether to apply softmax to the reward outputs. 
+    Whether to apply softmax to the reward outputs.
     """
     step_tag_id: Optional[int] = None
     """
@@ -2638,9 +2638,9 @@ class PoolerConfig:
 
     max_embed_len: Optional[int] = None
     """
-    Maximum input length allowed for embedding generation. When set, allows 
+    Maximum input length allowed for embedding generation. When set, allows
     inputs longer than max_embed_len to be accepted for embedding models.
-    This parameter enables accepting long inputs without requiring 
+    This parameter enables accepting long inputs without requiring
     VLLM_ALLOW_LONG_MAX_MODEL_LEN environment variable. When an input exceeds
     max_embed_len, it will be handled according to the original max_model_len
     validation logic. Defaults to None (i.e. set to max_model_len).
@@ -3651,7 +3651,7 @@ class VllmConfig:
                     "when cudagraph_mode piecewise cudagraphs is used, "\
                     f"cudagraph_mode={self.compilation_config.cudagraph_mode}"
 
-        #if self.parallel_config.enable_microbatching:
+        #if self.parallel_config.enable_dbo:
         #    a2a_backend = envs.VLLM_ALL2ALL_BACKEND
         #    assert a2a_backend == "deepep_low_latency", \
         #    "Microbatching currently only supports the deepep_low_latency "\

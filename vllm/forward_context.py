@@ -13,6 +13,7 @@ import torch.distributed as dist
 import vllm.envs as envs
 from vllm.config import CUDAGraphMode, ParallelConfig, VllmConfig
 from vllm.logger import init_logger
+from vllm.platforms import current_platform
 from vllm.v1.worker.ubatch_utils import UBatchSlices, is_second_ubatch_empty
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class BatchDescriptor(NamedTuple):
     num_tokens: int
     uniform_decode: bool = False
     """
-    False can also be used for an uniform decode batch to dispatch to the 
+    False can also be used for an uniform decode batch to dispatch to the
     cudagraph supporting non-uniform batches.
     """
 
@@ -90,8 +91,24 @@ class DPMetadata:
             should_ubatch: bool, orig_num_tokens_per_ubatch: int,
             padded_num_tokens_per_ubatch: int, dp_size: int,
             dp_rank: int) -> tuple[bool, Optional[torch.Tensor]]:
+        """
+        1. Decides if each DP rank is going to microbatch. Either all ranks
+        run with microbatching or none of them do. If this function decides
+        not to run with microbatching. It will "abort" meaning that no padding
+        information will be returned to the caller. It will return (False, None)
+        2. Determines the total number of tokens that each rank will run.
+        All ranks will be padded out so that the run with the same number
+        of tokens
+        Returns: tuple[
+            should_ubatch: Are all DP ranks going to microbatch
+            num_tokens_after_padding: A tensor containing the total number of
+            tokens per-microbatch for each DP rank including padding. Will be
+            None if should_ubatch if False
+        ]
+        """
 
-        tensor = torch.zeros(3, dp_size, device="cuda", dtype=torch.int32)
+        device = current_platform.device_type
+        tensor = torch.zeros(3, dp_size, device=device, dtype=torch.int32)
         tensor[0][dp_rank] = orig_num_tokens_per_ubatch
         tensor[1][dp_rank] = padded_num_tokens_per_ubatch
         tensor[2][dp_rank] = 1 if should_ubatch else 0
@@ -112,7 +129,7 @@ class DPMetadata:
             logger.debug("Aborting ubatching %s %s", orig_min_num_tokens,
                          padded_max_num_tokens)
             return False, None
-        return result, padded_num_tokens_tensor
+        return result, padded_num_tokens_tensor.cpu()
 
     @staticmethod
     def make(
@@ -137,7 +154,7 @@ class DPMetadata:
         # If num_tokens_across_dp is None, it will be computed by all_reduce
         # Otherwise, num_tokens_across_dp[dp_rank] should be equal to batchsize
         #assert (num_tokens_across_dp is None or num_tokens_across_dp[dp_rank]
-        #        == batchsize), f"{num_tokens_across_dp[dp_rank]} {batchsize} {num_tokens_across_dp} {dp_rank}"
+        #        == batchsize), f"{num_tokens_across_dp[dp_rank]} {batchsize}"
         if num_tokens_across_dp is None:
             num_tokens_across_dp = DPMetadata.num_tokens_across_dp(
                 batchsize, dp_size, dp_rank)
@@ -168,7 +185,7 @@ class DPMetadata:
         `self.local_sizes` is only valid inside the context.
 
         Args:
-            max_chunk_size_per_rank: The max number of tokens each rank is 
+            max_chunk_size_per_rank: The max number of tokens each rank is
                                      allowed to process in this chunk.
             chunk_idx: The index of the chunk to compute sizes for.
         """
@@ -194,8 +211,8 @@ class ForwardContext:
     # copy from vllm_config.compilation_config.static_forward_context
     no_compile_layers: dict[str, Any]
     """
-    Type AttentionMetadata for v0, 
-    Type Dict[str, AttentionMetadata] for v1, map from layer_name of each 
+    Type AttentionMetadata for v0,
+    Type Dict[str, AttentionMetadata] for v1, map from layer_name of each
     attention layer to its attention metadata
     Type List[Dict[str, AttentionMetadata]] for DBO. List of size two, one
     for each microbatch.
